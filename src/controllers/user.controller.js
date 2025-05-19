@@ -210,6 +210,9 @@ const refreshAccessToken = asyncHandler(async(req,res) => {
        }
  
       const {accessToken , newRefreshToken} =   await generateAccessAndRefreshTokens(user._id)
+
+      user.refreshToken = newRefreshToken;
+      await user.save({validateBeforeSave : false });
  
         return res
         .status(200)
