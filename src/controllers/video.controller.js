@@ -7,6 +7,81 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary , deleteFromCloudinary } from "../utils/cloudinary.js";
 
 
+const getAllVideos = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10, query = "", sortBy = "createdAt", sortType= "desc", userId } = req.query
+    //TODO: get all videos based on query, sort, pagination
+
+    if(userId == null || userId == undefined || query == null || query == undefined){
+        throw new ApiError(400 , "userId or query is not defined")
+    }
+
+    const owner = await User.findById(userId)
+
+    if(!owner){
+        throw new ApiError(404, "User not found")
+    }
+
+    let skip = (page - 1) * limit;
+
+    const videos = await Video.aggregate([
+        {
+            $match : {
+                title  : { $regex : query , $options : "i"},
+                owner : new mongoose.Types.ObjectId(userId),
+            },
+        },
+        {
+           $lookup : {
+            from : "users",
+            localField : "owner",
+            foreignField : "_id",
+            as :  "videosByOwner",
+            pipeline : [
+                {
+                    $project : {
+                        username : 1,
+                        avatar : 1
+                    },
+                },
+            ],
+           }, 
+        },
+        {
+            $addFields : {
+                userVideos : {
+                    $first : "$videosByOwner",
+                },
+            },
+        },
+        {
+            $sort : {
+                [sortBy] : sortType === "desc" ? -1 : 1,
+            },
+        },
+        {$skip : skip},
+        {$limit : parseInt(limit)},
+        {
+            $project : {
+                videoFile : 1,
+                title : 1,
+                description : 1,
+                duration : 1,
+                views : 1,
+                thumbnail : 1,
+                userVideos : 1,
+            },
+        },
+    ])
+
+    if(!videos.length){
+        throw new ApiError(404, "No Videos Found")
+    }
+
+    return res
+             .status(200)
+             .json(new ApiResponse(200 , videos , "Videos fetched successfully"))
+
+})
 
 const publishAVideo = asyncHandler(async(req,res) => {
     const {title , description} = req.body;
@@ -189,4 +264,11 @@ const togglePublishStatus = asyncHandler(async(req,res) => {
             .json(new ApiResponse(200 , changePublishStatus , "Toggled Video Published Status"))
 })
 
-export {publishAVideo,getVideoById,updateVideo,deleteVideo,togglePublishStatus}
+export {
+    getAllVideos,
+    publishAVideo,
+    getVideoById,
+    updateVideo,
+    deleteVideo,
+    togglePublishStatus
+}
