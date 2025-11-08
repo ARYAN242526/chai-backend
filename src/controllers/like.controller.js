@@ -112,8 +112,38 @@ const toggleTweetLike = asyncHandler(async(req,res) => {
     res.status(200).json(new ApiResponse(200 , likeDoc , "tweet like added"));
 })
 
+const getLikedVideos = asyncHandler(async(req,res) => {
+    const userId = req.user?._id;
 
-export {toggleVideoLike , toggleCommentLike , toggleTweetLike}
+    if(!userId){
+        throw new ApiError(400 , "userId not defined so can't get videos");
+    }
+
+    const likedVideos = await Like.find({
+        likedBy: userId,
+        video: { $exists : true}
+    }).populate("video" , "_id title videoFile");
+
+    if(likedVideos.length === 0){
+        return res
+                .status(200)
+                .json(new ApiResponse(200 , [] , "Liked videos not found"));
+    }
+
+    return res
+            .status(200)
+            .json(
+                new ApiResponse(200 , likedVideos , "Liked videos retrieved successfully")
+            );
+})
+
+
+export {
+    toggleVideoLike,
+    toggleCommentLike,
+    toggleTweetLike,
+    getLikedVideos
+}
 
 
 
